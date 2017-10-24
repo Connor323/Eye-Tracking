@@ -9,7 +9,7 @@ import constant as con
 cap = cv2.VideoCapture(0)
 face_cascade = cv2.CascadeClassifier('/usr/local/Cellar/opencv/2.4.13.2/share/OpenCV/haarcascades/haarcascade_frontalface_default.xml')
 
-def find_eye(frame, faces):
+def find_eye(frame, gray, faces):
 	eye_region_width = faces[2] * (con.kEyePercentWidth/100.0)
 	eye_region_height = faces[3] * (con.kEyePercentHeight/100.0)
 	eye_region_top = faces[3] * (con.kEyePercentTop/100.0)
@@ -21,22 +21,24 @@ def find_eye(frame, faces):
 	                  int(faces[1]+eye_region_top), 
 	                  int(eye_region_width), 
 	                  int(eye_region_height)]
-	cv2.rectangle(frame,(int(leftEyeRegion[0]),int(leftEyeRegion[1])),
-                  (int(leftEyeRegion[0])+int(leftEyeRegion[2]),int(leftEyeRegion[1])+int(leftEyeRegion[3])),
-                  (255,0,0),2)
-	cv2.rectangle(frame,(int(rightEyeRegion[0]),int(rightEyeRegion[1])),
-                  (int(rightEyeRegion[0])+int(rightEyeRegion[2]),int(rightEyeRegion[1])+int(rightEyeRegion[3])),
-                  (255,0,0),2)
-	left_p = find_eye_center(frame, leftEyeRegion)
-	right_p = find_eye_center(frame, rightEyeRegion)
+	cv2.rectangle(frame,(leftEyeRegion[0], leftEyeRegion[1]),
+                        (leftEyeRegion[0]+leftEyeRegion[2], leftEyeRegion[1]+leftEyeRegion[3]),
+                        (0,255,0),2)
+	cv2.rectangle(frame,(rightEyeRegion[0], rightEyeRegion[1]),
+                        (rightEyeRegion[0] + rightEyeRegion[2], rightEyeRegion[1] + rightEyeRegion[3]),
+                        (0,255,0),2)
+
+	left_p = find_eye_center(gray, leftEyeRegion)
+	right_p = find_eye_center(gray, rightEyeRegion)
 	left_p[0] += leftEyeRegion[0]
 	left_p[1] += leftEyeRegion[1]
 	l = (int(left_p[0]), int(left_p[1]))
 	right_p[0] += rightEyeRegion[0]
 	right_p[1] += rightEyeRegion[1]
 	r = (int(right_p[0]), int(right_p[1]))
-	frame = cv2.circle(frame, l, 5, 1234)
-	frame = cv2.circle(frame, r, 5, 1234)
+	cv2.circle(frame, l, 5, (0,0,255), -1)
+	cv2.circle(frame, r, 5, (0,0,255), -1)
+	return frame
 
 def unscalePoint(p, size):
 	ratio = (float(con.kFastEyeWidth))/size[2]
@@ -44,13 +46,11 @@ def unscalePoint(p, size):
 	y = round(p[1] / ratio, 0)
 	return (x,y)
 
-def scaleToFastSize(frame):     # to be discussed
-	# (h, w) = frame.shape
-	# print (con.kFastEyeWidth, int(float(con.kFastEyeWidth)/w))
+def scaleToFastSize(frame):   
 	return cv2.resize(frame, (con.kFastEyeWidth, int(con.kFastEyeWidth)))
 
-def find_eye_center(frame, region):
-	eye_area = frame[region[1]:region[1]+region[3], region[0]:region[0]+region[2]]
+def find_eye_center(gray, region):
+	eye_area = gray[region[1]:region[1]+region[3], region[0]:region[0]+region[2]]
 	eye_area = scaleToFastSize(eye_area)
 	grdient_X = compute_gradient(eye_area)
 	grdient_Y = cv2.transpose(compute_gradient(cv2.transpose(eye_area)))
@@ -78,11 +78,8 @@ def find_eye_center(frame, region):
 			out_sum = testPossibleCentersFormulac(x, y, weight, grdient_X[y][x], grdient_Y[y][x], out_sum)
 	out = out_sum / (h*w)
 	[minVal, maxVal, minLoc, maxLoc] = cv2.minMaxLoc(out)
-	#m = (maxLoc[0]+region[0], maxLoc[1]+region[1])
-	#print "m: ", m
 	maxLoc = unscalePoint(maxLoc, region)
 	m = [maxLoc[0], maxLoc[1]]
-	#print "maxLoc: ", maxLoc
 	return m
 
 def testPossibleCentersFormulac(x, y, weight, gX, gY, out):
@@ -106,7 +103,7 @@ def testPossibleCentersFormulac(x, y, weight, gX, gY, out):
 
 def compute_gradient(frame):
 	out = np.zeros(frame.shape)
-	(h, w) = frame.shape
+	(h, w) = frame.shape[:2]
 	for y in range(h):
 		out[y][0] = int(frame[y][1]) - int(frame[y][0])
 		for x in range(w-1):
@@ -126,14 +123,13 @@ def computeDynamicThreshold(mags, kGradientThreshold):     # didn't figure out
 	([[meanMagnGrad]], [[stdMagnGrad]]) = cv2.meanStdDev(mags)
 	(h, w) = mags.shape
 	stdDev = stdMagnGrad / np.sqrt(h*w)
-	print kGradientThreshold * stdDev + meanMagnGrad
 	return kGradientThreshold * stdDev + meanMagnGrad
 
 def main():
 	# Capture frame-by-frame
 	while True:
 		ret, frame = cap.read()
-		# frame = cv2.imread('alec1.jpg')
+		# frame = cv2.imread("TEMP_IMG", -1)
 
 		# convert the frame to gray scale
 		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -142,19 +138,17 @@ def main():
 		faces = face_cascade.detectMultiScale(gray, 
 			                                  scaleFactor=1.1, 
 		                                      minNeighbors=5)
-		# assert len(faces) > 0
-		print "faces: ", faces
 		num_face = 0
 
 		for (fx,fy,w,h) in faces:
-			cv2.rectangle(gray,(fx,fy),(fx+w,fy+h),(255,0,0),2)
+			cv2.rectangle(frame,(fx,fy),(fx+w,fy+h),(255,0,0),2)
 			# find eyes according to percentages 
 			if w * h:
-				find_eye(gray, faces[num_face])
+				frame = find_eye(frame, gray, faces[num_face])
 			num_face += 1
 
-			# Display the resulting frame
-		cv2.imshow('gray', gray)
+		# Display the resulting frame
+		cv2.imshow('gray', frame)
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
 	# When everything done, release the capture
