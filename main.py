@@ -6,7 +6,6 @@ import copy
 import constant as con
 
 # pre defination
-# cap = cv2.VideoCapture(0)
 face_cascade = cv2.CascadeClassifier('/usr/local/Cellar/opencv/2.4.13.2/share/OpenCV/haarcascades/haarcascade_frontalface_default.xml')
 
 def find_eye(frame, gray, faces):
@@ -126,35 +125,61 @@ def computeDynamicThreshold(mags, kGradientThreshold):     # didn't figure out
 	return kGradientThreshold * stdDev + meanMagnGrad
 
 def main():
-	# Capture frame-by-frame
-	# while True:
-	# ret, frame = cap.read()
-	frame = cv2.imread("einstein.jpg", -1)
+	assert len(sys.argv) >= 2, "Check Usage"
+	if sys.argv[1] == "0":
+		assert len(sys.argv) == 3, "Check Usage"
+	else:
+		assert len(sys.argv) == 2, "Check Usage"
 
-	# convert the frame to gray scale
-	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	if sys.argv[1] == "0":
+		path = sys.argv[2]
+		# read and convert the image to gray scale
+		frame = cv2.imread(path, -1)
+		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		# detect face with Cascade Classifier
+		faces = face_cascade.detectMultiScale(gray, 
+			                                  scaleFactor=1.1, 
+		                                      minNeighbors=5)
+		num_face = 0
 
-	# detect face with Cascade Classifier
-	faces = face_cascade.detectMultiScale(gray, 
-		                                  scaleFactor=1.1, 
-	                                      minNeighbors=5)
-	num_face = 0
+		for (fx,fy,w,h) in faces:
+			cv2.rectangle(frame,(fx,fy),(fx+w,fy+h),(255,0,0),2)
+			# find eyes according to percentages 
+			if w * h:
+				frame = find_eye(frame, gray, faces[num_face])
+			num_face += 1
 
-	for (fx,fy,w,h) in faces:
-		cv2.rectangle(frame,(fx,fy),(fx+w,fy+h),(255,0,0),2)
-		# find eyes according to percentages 
-		if w * h:
-			frame = find_eye(frame, gray, faces[num_face])
-		num_face += 1
+		# Display the resulting frame
+		cv2.imwrite("result.jpg", frame)
+		print "Finish Processing!"
+	else:	
+		cap = cv2.VideoCapture(0)
+		while True:
+			# Capture frame-by-frame
+			ret, frame = cap.read()
+			# convert the frame to gray scale
+			gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-	# Display the resulting frame
-	cv2.imwrite("result.jpg", frame)
-	# cv2.imshow('gray', frame)
-	# if cv2.waitKey(1) & 0xFF == ord('q'):
-	# 	break
-	# When everything done, release the capture
-	# cap.release()
-	cv2.destroyAllWindows()
+			# detect face with Cascade Classifier
+			faces = face_cascade.detectMultiScale(gray, 
+				                                  scaleFactor=1.1, 
+			                                      minNeighbors=5)
+			num_face = 0
+
+			for (fx,fy,w,h) in faces:
+				cv2.rectangle(frame,(fx,fy),(fx+w,fy+h),(255,0,0),2)
+				# find eyes according to percentages 
+				if w * h:
+					frame = find_eye(frame, gray, faces[num_face])
+				num_face += 1
+
+			# Display the resulting frame
+			cv2.imshow('gray', frame)
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				break
+		# When everything done, release the capture
+		cap.release()
+		cv2.destroyAllWindows()
 
 
 # if python says run, then we should run
