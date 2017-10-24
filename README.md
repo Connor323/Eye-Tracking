@@ -10,5 +10,5 @@ python main 0 PATH_TO_IMAGE
 python main 1
 
 ## Results:
-![ ](./images/einstein.png)
-![ ](./images/result.png)
+![ ](./images/einstein.jpg)
+![ ](./images/result.jpg)
