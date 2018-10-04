@@ -5,7 +5,7 @@ import sys
 import copy
 import constant as con
 
-# pre defination
+# pre defintion
 face_cascade = cv2.CascadeClassifier('/usr/local/Cellar/opencv/2.4.13.2/share/OpenCV/haarcascades/haarcascade_frontalface_default.xml')
 
 def find_eye(frame, gray, faces):
